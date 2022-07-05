@@ -1,0 +1,69 @@
+﻿@page "/"
+@using Toolbelt.Blazor.Gamepad
+@using System.Timers
+@implements IDisposable
+@inject GamepadList GamepadProvider
+<PageTitle>Mqtt Joystick</PageTitle>
+
+@if (_gamepad is null)
+{
+    <h2>Please press any key or connect a gamepad.</h2>
+    <h3>The MQTT joystick can only be operated with a connected gamepad.</h3>
+}
+else
+{
+    <strong>Steering: @_steering</strong>
+    <strong>Velocity: @_velocity</strong>
+    
+    @*<strong>Axes</strong>
+    <ul>
+        @foreach (var ax in _gamepad.Axes)
+        {
+            <li>@ax.ToString("#,0.0")</li>
+        }
+    </ul>
+    
+    <strong>Buttons</strong>
+    <ul>
+        @foreach (var button in _gamepad.Buttons)
+        {
+            <li>@button.Pressed (@button.Value)</li>
+        }
+    </ul>*@
+}
+
+@code {
+
+    private Gamepad? _gamepad;
+    private double _velocity;
+    private double _steering;
+    private readonly Timer _timer = new(200) { Enabled = true };
+
+    protected override void OnInitialized()
+    {
+        _timer.Elapsed += UpdateGamepads;
+    }
+
+    private async void UpdateGamepads(object? sender, ElapsedEventArgs e)
+    {
+        var gamepads = await GamepadProvider.GetGamepadsAsync();
+        _gamepad = gamepads.FirstOrDefault();
+        if (_gamepad is null) return;
+        
+        _steering = _gamepad.Axes.ElementAtOrDefault(0) * 100;
+
+        if (_gamepad.Buttons.ElementAtOrDefault(6) is not null && _gamepad.Buttons.ElementAtOrDefault(7) is not null)
+        {
+            _velocity = _gamepad.Buttons.ElementAt(7).Value * 100 - _gamepad.Buttons.ElementAt(6).Value * 100;
+        }
+            
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        _timer.Elapsed -= UpdateGamepads;
+        _timer.Dispose();
+    }
+
+}
